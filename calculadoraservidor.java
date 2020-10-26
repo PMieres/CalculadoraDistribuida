@@ -5,6 +5,10 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.Timestamp;
+import java.util.Date;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 
 public class calculadoraservidor  {
@@ -14,9 +18,12 @@ public class calculadoraservidor  {
 		System.out.print("Bienvenido");		
 
 		int [] puertosServidores = {9995,9996,9997,9998,9999};
-		int [] puertosNodos = {9800,9801,9802,9803,9804};
+
 		boolean conectado = false;
 		ServerSocket miServidor = null;
+		Date fecha= new Date();	 
+		Timestamp ts= null;
+		String huella="";
 		try{
 			
 			//Inicializamos el servidor
@@ -25,6 +32,13 @@ public class calculadoraservidor  {
 					 miServidor = new ServerSocket(puertosServidores[i]);
 					 System.out.println("Conexion");
 					 conectado = true;
+					 //Obtienes la TimeStamp
+					 long time = fecha.getTime();
+					 ts = new Timestamp(time);
+					 //Usamos SHA1 para conseguir la huella del servidor
+					 System.out.println("\nIntentando obtener huella");
+					 huella= DigestUtils.sha1Hex(ts.toString());
+					 System.out.println("\nHuella del servidor: "+huella);
 					 break;
 				}
 				
@@ -78,6 +92,7 @@ class ClientHandler2 extends Thread {
     Socket sock; 
     int [] puertosServidores = {9999,9998,9997,9996,9995};
 	int [] puertosNodos = {9800,9801,9802,9803,9804};
+
     
 	public ClientHandler2(Socket s, DataInputStream dis, DataOutputStream dos)  
     { 
@@ -89,92 +104,80 @@ class ClientHandler2 extends Thread {
 	 @Override
 	    public void run()  
 	    { 
-	        String received; 
-	        String toreturn; 
-	        boolean division = false;
-	        float resultado = 0;
-	        float resultado_division = 0;
+
 	        while(true) {
 	            try { 
 					//Recibiendo mensaje y separandolo en variables
 					String mensaje = dataInputStream.readUTF();
 					System.out.println("Mensaje del cliente: "+mensaje);
-					String [] operandos = mensaje.split(",");
-					float operando1 = Float.parseFloat(operandos[1]);
-					float operando2 = Float.parseFloat(operandos[2]);
-					int op = Integer.parseInt(operandos[0]);
-					int codigo_resultado= 0;
-					String codigo_resultado_string= "";
-					char operacion=' ';
 					
-					//Determinas la operacion segun el content code
-					switch(op) {
-					case 1:
-						operacion = '+';
-						break;
-					case 2:
-						operacion = '-';
-						break;
-					case 3:
-						operacion = '*';
-						break;
-					case 4:
-						operacion = '/';
-						break;
-					default:
-						operacion = ' ';
-						break;
+					String [] operandos = mensaje.split(",");
+					int op = Integer.parseInt(operandos[0]);
+					if(op==100) {
+						//100 es el codigo de contenido para un acuse
+						dataOutputStream.writeUTF("101,0,0,0,0"); //Regresa 101, que es el contentCode para decir que esta en linea
+					}else {
+						String path = "Calculadora";
+						String classname = "";
+						float operando1 = Float.parseFloat(operandos[1]);
+						float operando2 = Float.parseFloat(operandos[2]);
+						Class cls = null;
+						String respuesta = "";
+						Object obj = null;
+						ClassLoader clsloader = ClassLoader.getSystemClassLoader();
+						System.out.print("\nTratando de usar el ClassLoader");
+						char operacion=' ';
+						
+						//Determinas la operacion segun el content code
+						switch(op) {
+						case 1:
+							operacion = '+';
+							classname = "suma";
+							break;
+						case 2:
+							operacion = '-';
+							classname = "resta";
+							break;
+						case 3:
+							operacion = '*';
+							classname = "multiplicacion";
+							break;
+						case 4:
+							operacion = '/';
+							classname = "division";
+							break;
+						default:
+							operacion = ' ';
+							break;
+						}
+						//Usamos el class loader para cargar dinamicamente las clases
+						try {
+							cls=clsloader.loadClass(path+"."+classname);
+						} catch (ClassNotFoundException e) {
+							
+							e.printStackTrace();
+						}
+						
+						try {
+							 obj = cls.newInstance();
+						} catch (InstantiationException e) {
+							
+							e.printStackTrace();
+						} catch (IllegalAccessException e) {
+							
+							e.printStackTrace();
+						}
+						//Realizamos la operacion
+						respuesta=((OperacionesArit)obj).Operar(operando1,operando2);
+						System.out.print("\nOperando1: "+operando1);
+						System.out.print("\nOperando2: "+operando2);
+						System.out.print("\nOperacion: "+operacion);
+						System.out.print("\nRespuesta de la clase: "+respuesta);
+						dataOutputStream.writeUTF(respuesta); 
+						
+		                     
 					}
-					System.out.print("\nOperando1: "+operando1);
-					System.out.print("\nOperando2: "+operando2);
-					System.out.print("\nOperacion: "+operacion);
-
-	    					//Realizando operacion deseada
-	    					switch(operacion) {
-	    					case '+':
-	    						division = false;
-	    						resultado = operando1+operando2;
-	    						codigo_resultado = 11;
-	    						break;
-	    					case '-':
-	    						division = false;
-	    						resultado= operando1-operando2;
-	    						codigo_resultado = 12;
-	    						break;
-	    					case '*':
-	    						division = false;
-	    						resultado = operando1*operando2;
-	    						codigo_resultado = 13;
-	    						break;
-	    					case'/':
-	    						division = true;
-	    						resultado_division= operando1/operando2;
-	    						codigo_resultado = 14;
-	    						break;
-	    					default:
-	    						division = false;
-	    						System.out.println("No existe la operacion");
-	    						break;
-	    					}
-	    					
-	    					if(!division) {
-	    						mensaje = String.valueOf(resultado);
-	    						System.out.print("\nResultado operacion: "+mensaje);
-	    						//Devuelve resultado
-
-	    						toreturn = String.valueOf(resultado);
-	    						codigo_resultado_string = String.valueOf(codigo_resultado);
-	    						dataOutputStream.writeUTF(codigo_resultado_string+","+toreturn); 
-	    					}else {
-	    						mensaje = String.valueOf(resultado_division);
-	    						System.out.print("\nResultado operacion: "+mensaje);
-	    						//Devuelve resultado
-
-	    						toreturn = String.valueOf(resultado_division);
-	    						codigo_resultado_string = String.valueOf(codigo_resultado);
-	    						dataOutputStream.writeUTF(codigo_resultado_string+","+toreturn); 
-	    					}
-	                     
+					
 	                        
 
 	            } catch (IOException e) { 
