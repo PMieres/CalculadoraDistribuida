@@ -8,6 +8,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
@@ -476,28 +477,23 @@ public class calculadoracliente extends Application {
 	    } 
 	}
 	public void DuplicarServidores() {
-		String programa = "";
-		int contador = 0;
-		String path = "C:\\Users\\Mieres\\eclipse-workspace\\TestExercises\\src\\";
-		String folder = "Calculadora";
-		File temp = new File(path+folder);
-		while(temp.exists()) {
-			temp = new File(path+folder+contador);
-			contador++;
-		}
+		int required = 3-acusesSuma;
 		
-		try {
-			FileUtils.copyDirectory(new File(path+folder),temp,false);
-			programa = path+folder+"\\calculadoraservidor.java";
-			System.out.println("Programa a ejecutar: "+programa);
-			Runtime.getRuntime().exec("java -cp .;commons-codec-1.15.jar Calculadora.calculadoraservidor");
+		for(int i =0;i<required;i++) {
+			try {
+				TimeUnit.SECONDS.sleep(5);
+				Runtime rt = Runtime.getRuntime();
+				 rt.exec("cmd /c start cmd.exe /K \"cd C:\\Users\\Mieres\\eclipse-workspace\\TestExercises\\src\\ && java -cp .;commons-codec-1.15.jar Calculadora.calculadoraservidor\"");
+
+			}catch(IOException e) {
+				
+				
+			} catch (InterruptedException e) {
+				
+				e.printStackTrace();
+			}	
 			
-		}catch(IOException e) {
-			e.printStackTrace();
-			System.out.println("Error duplicando el servidor");
 		}
-		
-		
 		
 	}
 	
